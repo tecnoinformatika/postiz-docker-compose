@@ -178,36 +178,12 @@ services:
   # -----------------------
   # Temporal Stack
   # -----------------------
-  temporal-elasticsearch:
-    container_name: temporal-elasticsearch
-    image: elasticsearch:7.17.27
-    restart: always
-    cap_add:
-      - SYS_CHROOT
-      - SETUID
-      - SETGID
-      - DAC_OVERRIDE
-    environment:
-      - cluster.routing.allocation.disk.threshold_enabled=true
-      - cluster.routing.allocation.disk.watermark.low=512mb
-      - cluster.routing.allocation.disk.watermark.high=256mb
-      - cluster.routing.allocation.disk.watermark.flood_stage=128mb
-      - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms256m -Xmx256m
-      - xpack.security.enabled=false
-    networks:
-      - temporal-network
-    expose:
-      - 9200
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS \"http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s\" || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
-    volumes:
-      - temporal-elasticsearch-data:/usr/share/elasticsearch/data
-
+  # NOTA: Elasticsearch fue removido del stack porque la plataforma de deploy
+  # (temps) bloquea `cap_add`, y sin CAP_SYS_CHROOT el contenedor de ES no
+  # puede arrancar (chroot: Operation not permitted). Temporal funciona sin
+  # ES usando el dynamic config "development-sql.yaml" (visibilidad via
+  # Postgres); solo se pierde la búsqueda avanzada de workflows en su UI,
+  # que Postiz no requiere para operar.
   temporal-postgresql:
     container_name: temporal-postgresql
     image: postgres:16
@@ -237,8 +213,6 @@ services:
     depends_on:
       temporal-postgresql:
         condition: service_healthy
-      temporal-elasticsearch:
-        condition: service_healthy
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -246,9 +220,7 @@ services:
       - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD}
       - POSTGRES_SEEDS=temporal-postgresql
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - ENABLE_ES=true
-      - ES_SEEDS=temporal-elasticsearch
-      - ES_VERSION=v7
+      - ENABLE_ES=false
       - TEMPORAL_NAMESPACE=default
     networks:
       - temporal-network
@@ -313,9 +285,6 @@ volumes:
     external: false
 
   temporal-postgres-data:
-    external: false
-
-  temporal-elasticsearch-data:
     external: false
 
 networks:
