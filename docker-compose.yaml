@@ -114,7 +114,7 @@ services:
     ports:
       - "4007:5000"
     networks:
-      - default
+      - temps-app-network
       - postiz-network
       - temporal-network
     healthcheck:
@@ -175,7 +175,7 @@ services:
       - ENABLE_ES=false
       - TEMPORAL_NAMESPACE=default
     networks:
-      - default
+      - temps-app-network
       - temporal-network
     healthcheck:
       test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "temporal:7233"]
@@ -237,3 +237,9 @@ networks:
   temporal-network:
     driver: bridge
     name: temporal-network
+  # Red compartida creada por la plataforma temps; ahí viven los recursos
+  # administrados (postgres-poztiz, redis-poztiz, etc.). No la creamos
+  # nosotros, solo nos conectamos.
+  temps-app-network:
+    external: true
+    name: temps-app-network
