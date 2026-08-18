@@ -3,8 +3,6 @@ services:
     image: ghcr.io/gitroomhq/postiz-app:latest
     container_name: postiz
     restart: always
-    env_file:
-      - .env
     environment:
       # === Required Settings
       MAIN_URL: '${MAIN_URL}'
