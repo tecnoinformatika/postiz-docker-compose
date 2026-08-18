@@ -182,6 +182,11 @@ services:
     container_name: temporal-elasticsearch
     image: elasticsearch:7.17.27
     restart: always
+    cap_add:
+      - SYS_CHROOT
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
     environment:
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=512mb
