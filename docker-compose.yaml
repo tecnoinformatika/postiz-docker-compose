@@ -9,7 +9,7 @@ services:
       FRONTEND_URL: '${FRONTEND_URL}'
       NEXT_PUBLIC_BACKEND_URL: '${NEXT_PUBLIC_BACKEND_URL}'
       JWT_SECRET: '${JWT_SECRET}'
-      DATABASE_URL: 'postgresql://${POSTIZ_DB_USER}:${POSTIZ_DB_PASSWORD}@postiz-postgres:5432/${POSTIZ_DB_NAME}'
+      DATABASE_URL: '${POSTGRES_URL}'
       REDIS_URL: 'redis://postiz-redis:6379'
       BACKEND_INTERNAL_URL: '${BACKEND_INTERNAL_URL}'
       TEMPORAL_ADDRESS: "temporal:7233"
@@ -123,31 +123,14 @@ services:
       retries: 5
       start_period: 120s
     depends_on:
-      postiz-postgres:
-        condition: service_healthy
       postiz-redis:
         condition: service_healthy
       temporal:
         condition: service_healthy
 
-  postiz-postgres:
-    image: postgres:17-alpine
-    container_name: postiz-postgres
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: '${POSTIZ_DB_PASSWORD}'
-      POSTGRES_USER: '${POSTIZ_DB_USER}'
-      POSTGRES_DB: '${POSTIZ_DB_NAME}'
-    volumes:
-      - postgres-volume:/var/lib/postgresql/data
-    networks:
-      - postiz-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTIZ_DB_USER} -d ${POSTIZ_DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+  # NOTA: Postiz usa el Postgres externo administrado por temps
+  # (recurso "postgres-poztiz"), conectado vía POSTGRES_URL. Ya no se
+  # levanta un contenedor de Postgres propio para Postiz.
   postiz-redis:
     image: redis:7.2
     container_name: postiz-redis
@@ -184,41 +167,24 @@ services:
   # ES usando el dynamic config "development-sql.yaml" (visibilidad via
   # Postgres); solo se pierde la búsqueda avanzada de workflows en su UI,
   # que Postiz no requiere para operar.
-  temporal-postgresql:
-    container_name: temporal-postgresql
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: '${TEMPORAL_DB_PASSWORD}'
-      POSTGRES_USER: '${TEMPORAL_DB_USER}'
-    networks:
-      - temporal-network
-    expose:
-      - 5432
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TEMPORAL_DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    volumes:
-      - temporal-postgres-data:/var/lib/postgresql/data
-
+  #
+  # Temporal también usa el Postgres externo "postgres-poztiz" (mismo
+  # servidor que Postiz, bases de datos separadas: "temporal" y
+  # "temporal_visibility", creadas automáticamente por el propio
+  # temporalio/auto-setup si el usuario tiene permiso CREATEDB). Ya no se
+  # levanta un contenedor temporal-postgresql propio.
   temporal:
     container_name: temporal
     restart: always
     ports:
       - '127.0.0.1:7233:7233'
     image: temporalio/auto-setup:1.28.1
-    depends_on:
-      temporal-postgresql:
-        condition: service_healthy
     environment:
       - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=${TEMPORAL_DB_USER}
-      - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD}
-      - POSTGRES_SEEDS=temporal-postgresql
+      - DB_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD}
+      - POSTGRES_SEEDS=${POSTGRES_HOST}
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
       - ENABLE_ES=false
       - TEMPORAL_NAMESPACE=default
@@ -272,9 +238,6 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres-volume:
-    external: false
-
   postiz-redis-data:
     external: false
 
@@ -282,9 +245,6 @@ volumes:
     external: false
 
   postiz-uploads:
-    external: false
-
-  temporal-postgres-data:
     external: false
 
 networks:
