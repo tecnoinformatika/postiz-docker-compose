@@ -10,7 +10,7 @@ services:
       NEXT_PUBLIC_BACKEND_URL: '${NEXT_PUBLIC_BACKEND_URL}'
       JWT_SECRET: '${JWT_SECRET}'
       DATABASE_URL: '${POSTGRES_URL}'
-      REDIS_URL: 'redis://postiz-redis:6379'
+      REDIS_URL: '${REDIS_URL}'
       BACKEND_INTERNAL_URL: '${BACKEND_INTERNAL_URL}'
       TEMPORAL_ADDRESS: "temporal:7233"
       IS_GENERAL: '${IS_GENERAL}'
@@ -123,28 +123,13 @@ services:
       retries: 5
       start_period: 120s
     depends_on:
-      postiz-redis:
-        condition: service_healthy
       temporal:
         condition: service_healthy
 
   # NOTA: Postiz usa el Postgres externo administrado por temps
-  # (recurso "postgres-poztiz"), conectado vía POSTGRES_URL. Ya no se
-  # levanta un contenedor de Postgres propio para Postiz.
-  postiz-redis:
-    image: redis:7.2
-    container_name: postiz-redis
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    volumes:
-      - postiz-redis-data:/data
-    networks:
-      - postiz-network
+  # (recurso "postgres-poztiz", vía POSTGRES_URL) y el Redis externo
+  # (recurso "redis-poztiz", vía REDIS_URL). Ya no se levantan
+  # contenedores propios de Postgres/Redis para Postiz.
 
   # For Application Monitoring / Debugging
   spotlight:
@@ -238,9 +223,6 @@ services:
         condition: service_healthy
 
 volumes:
-  postiz-redis-data:
-    external: false
-
   postiz-config:
     external: false
 
